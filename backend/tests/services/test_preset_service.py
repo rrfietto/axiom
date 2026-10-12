@@ -1,3 +1,5 @@
+from collections.abc import Generator
+
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
@@ -9,7 +11,7 @@ from app.services.preset_service import PresetConfigurationError, PresetService
 
 
 @pytest.fixture
-def session() -> Session:
+def session() -> Generator[Session]:
     engine = create_engine("sqlite://")
     Base.metadata.create_all(engine)
     with Session(engine) as database_session:

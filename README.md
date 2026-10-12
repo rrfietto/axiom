@@ -16,9 +16,13 @@ As três primeiras milestones estabelecem a fundação e o motor inicial:
 - presets persistidos em SQLite com SQLAlchemy e migrações Alembic;
 - endpoints públicos `GET /api/presets` e `GET /api/presets/{slug}`;
 - renderização PNG por `POST /api/render`;
+- persistência de artworks e imagens PNG no filesystem;
+- consulta e exclusão por `/api/artworks`;
+- interface React com presets e controles gerados dinamicamente;
+- preview e download da imagem renderizada;
 - testes, lint e type-check básicos.
 
-A persistência e a galeria de artworks serão adicionadas nas próximas milestones.
+A galeria visual de artworks será adicionada na próxima milestone.
 
 ## Requisitos
 
@@ -59,7 +63,18 @@ curl -X POST http://localhost:8000/api/render \
   --output axiom.png
 ```
 
-Os parâmetros omitidos usam os defaults do preset. A resposta é uma imagem PNG.
+Os parâmetros omitidos usam os defaults do preset. A resposta é uma imagem PNG,
+também persistida automaticamente. O ID e a URL da arte são retornados nos headers
+`X-Axiom-Artwork-Id` e `X-Axiom-Artwork-Url`.
+
+Endpoints de artworks:
+
+```text
+GET    /api/artworks
+GET    /api/artworks/{id}
+GET    /api/artworks/{id}/image
+DELETE /api/artworks/{id}
+```
 
 ### Verificações do backend
 
@@ -109,6 +124,7 @@ npm run build
 | `API_PREFIX` | `/api` | Prefixo das rotas HTTP |
 | `CORS_ORIGINS` | `http://localhost:5173` | Origens permitidas, separadas por vírgula |
 | `DATABASE_URL` | `sqlite:///.../data/app.db` | URL de conexão SQLAlchemy |
+| `ARTWORK_DIRECTORY` | `data/artworks` | Diretório dos arquivos PNG persistidos |
 
 ### Frontend
 

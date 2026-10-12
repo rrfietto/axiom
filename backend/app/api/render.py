@@ -5,11 +5,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
+from app.api.artworks import ArtworkServiceDependency, artwork_response
 from app.db.session import get_db
 from app.rendering.engine import RenderingEngine
 from app.rendering.exceptions import InvalidDimensionsError, ParameterValidationError
 from app.rendering.registry import renderer_registry
 from app.schemas.render import RenderRequest
+from app.services.artwork_service import ArtworkStorageError
 from app.services.preset_service import PresetNotFoundError, PresetService
 from app.services.render_service import RenderService
 
@@ -36,9 +38,10 @@ RenderServiceDependency = Annotated[RenderService, Depends(get_render_service)]
 def render_art(
     request: RenderRequest,
     service: RenderServiceDependency,
+    artwork_service: ArtworkServiceDependency,
 ) -> StreamingResponse:
     try:
-        image = service.render(
+        result = service.render(
             request.preset_slug,
             width=request.width,
             height=request.height,
@@ -56,8 +59,16 @@ def render_art(
             detail=str(error),
         ) from error
 
+    try:
+        artwork = artwork_service.save(result)
+    except ArtworkStorageError as error:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(error),
+        ) from error
+
     output = BytesIO()
-    image.save(output, format="PNG")
+    result.image.save(output, format="PNG")
     _ = output.seek(0)
     return StreamingResponse(
         output,
@@ -66,5 +77,7 @@ def render_art(
             "Content-Disposition": 'inline; filename="axiom.png"',
             "X-Axiom-Preset": request.preset_slug,
             "X-Axiom-Seed": str(request.seed),
+            "X-Axiom-Artwork-Id": str(artwork.id),
+            "X-Axiom-Artwork-Url": artwork_response(artwork).image_url,
         },
     )

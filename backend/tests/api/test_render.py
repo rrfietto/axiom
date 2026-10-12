@@ -8,14 +8,16 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.api.artworks import get_artwork_service
 from app.db.base import Base
 from app.db.models import Preset
 from app.db.session import get_db
 from app.main import app
+from app.services.artwork_service import ArtworkService
 
 
 @pytest.fixture
-def client() -> Generator[TestClient]:
+def client(tmp_path) -> Generator[TestClient]:
     engine = create_engine(
         "sqlite://",
         connect_args={"check_same_thread": False},
@@ -42,7 +44,12 @@ def client() -> Generator[TestClient]:
         with test_session() as session:
             yield session
 
+    def override_artwork_service() -> Generator[ArtworkService]:
+        with test_session() as session:
+            yield ArtworkService(session, tmp_path)
+
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_artwork_service] = override_artwork_service
     try:
         with TestClient(app) as test_client:
             yield test_client
@@ -71,11 +78,39 @@ def test_render_returns_png(client: TestClient) -> None:
     assert response.headers["content-type"] == "image/png"
     assert response.headers["x-axiom-preset"] == "test-waves"
     assert response.headers["x-axiom-seed"] == "42"
+    assert response.headers["x-axiom-artwork-id"] == "1"
+    assert response.headers["x-axiom-artwork-url"] == "/api/artworks/1/image"
 
     image = Image.open(BytesIO(response.content))
     assert image.format == "PNG"
     assert image.mode == "RGB"
     assert image.size == (160, 120)
+
+
+def test_render_persists_artwork_and_supports_retrieval(client: TestClient) -> None:
+    rendered = render(client)
+    artwork_id = rendered.headers["x-axiom-artwork-id"]
+
+    listing = client.get("/api/artworks")
+    detail = client.get(f"/api/artworks/{artwork_id}")
+    image = client.get(f"/api/artworks/{artwork_id}/image")
+
+    assert listing.status_code == 200
+    assert len(listing.json()) == 1
+    assert detail.json()["parameters"]["line_count"] == 20
+    assert detail.json()["seed"] == 42
+    assert image.content == rendered.content
+
+
+def test_delete_artwork_removes_record_and_image(client: TestClient) -> None:
+    rendered = render(client)
+    artwork_id = rendered.headers["x-axiom-artwork-id"]
+
+    response = client.delete(f"/api/artworks/{artwork_id}")
+
+    assert response.status_code == 204
+    assert client.get(f"/api/artworks/{artwork_id}").status_code == 404
+    assert client.get(f"/api/artworks/{artwork_id}/image").status_code == 404
 
 
 def test_render_is_deterministic(client: TestClient) -> None:

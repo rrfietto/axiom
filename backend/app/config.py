@@ -11,6 +11,7 @@ class Settings:
     api_prefix: str
     cors_origins: tuple[str, ...]
     database_url: str
+    artwork_directory: Path
 
 
 def _parse_origins(value: str) -> tuple[str, ...]:
@@ -27,4 +28,7 @@ def get_settings() -> Settings:
         api_prefix=os.getenv("API_PREFIX", "/api"),
         cors_origins=_parse_origins(os.getenv("CORS_ORIGINS", "http://localhost:5173")),
         database_url=os.getenv("DATABASE_URL", default_database_url),
+        artwork_directory=Path(
+            os.getenv("ARTWORK_DIRECTORY", project_root / "data" / "artworks")
+        ),
     )

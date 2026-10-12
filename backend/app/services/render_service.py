@@ -1,9 +1,19 @@
+from dataclasses import dataclass
+
 from PIL import Image
 
 from app.rendering.contracts import ParameterDefinition, ParameterValue
 from app.rendering.engine import RenderingEngine
 from app.rendering.exceptions import ParameterValidationError
-from app.services.preset_service import PresetService
+from app.services.preset_service import PresetService, ResolvedPreset
+
+
+@dataclass(frozen=True)
+class RenderResult:
+    image: Image.Image
+    preset: ResolvedPreset
+    parameters: dict[str, ParameterValue]
+    seed: int
 
 
 class RenderService:
@@ -23,7 +33,7 @@ class RenderService:
         height: int,
         seed: int,
         parameters: dict[str, ParameterValue],
-    ) -> Image.Image:
+    ) -> RenderResult:
         preset = self._preset_service.resolve_enabled(preset_slug)
         unknown = parameters.keys() - preset.parameters.keys()
         if unknown:
@@ -44,10 +54,16 @@ class RenderService:
                 parameters.get(name, schema.default),
             )
 
-        return self._engine.render(
+        image = self._engine.render(
             preset.renderer.id,
             width=width,
             height=height,
             seed=seed,
             parameters=effective_parameters,
+        )
+        return RenderResult(
+            image=image,
+            preset=preset,
+            parameters=effective_parameters.copy(),
+            seed=seed,
         )
