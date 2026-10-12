@@ -8,9 +8,16 @@ version = "0.1.0"
 description = "API for the Axiom math art generator"
 requires-python = ">=3.12"
 dependencies = [
+    "alembic>=1.15,<2.0",
     "fastapi>=0.115,<1.0",
+    "numpy>=2.2,<3.0",
+    "pillow>=11.1,<13.0",
+    "sqlalchemy>=2.0,<3.0",
     "uvicorn[standard]>=0.34,<1.0",
 ]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
 
 [project.optional-dependencies]
 dev = [

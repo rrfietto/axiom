@@ -1,0 +1,1 @@
+"""Concrete mathematical art renderers."""
